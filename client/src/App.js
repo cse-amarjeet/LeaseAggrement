@@ -1,86 +1,31 @@
-// import { useState, useEffect } from "react";
-// import { ethers } from "ethers";
-
-// import factoryContractAbi from "./contracts/Factory.json";
-
-
-// import Aggrements from './components/Aggrements';
-// function App() {
-//   const [state, setState] = useState({
-//     provider: null,
-//     signer: null,
-//     contract: null
-//   });
-//    const [aggrementList, setAggrementList] = useState();
-//   useEffect(() => {
-//     const connectWallet = async () => {
-//      const factoryContractAddress = "0x3F6eDcB9720fdFd5B38D8EB56b3Ac54424633094";
-//       try {
-//         const { ethereum } = window;
-//         if (ethereum) {
-//           const accounts = await ethereum.request({
-//             method: "eth_requestAccounts",
-//           });
-//           const provider = new ethers.providers.Web3Provider(ethereum);
-//           const signer = provider.getSigner();
-//           const contract = new ethers.Contract(
-//             factoryContractAddress,
-//             factoryContractAbi.abi,
-//             signer
-//           );
-//           console.log("getLeaseAgreements: temp" )
-//             setState({ provider, signer, contract });
-//             const temp= await contract.getLeaseAgreements()
-//           setAggrementList(temp);
-//             console.log("getLeaseAgreements:", temp)
-//         }
-//       } catch (error) {
-//         console.log(error);
-//       }
-//     };
-//     connectWallet();
-//   }, []);
-
-//   return (
-//     <div>
-    
-//       <div className="max-w-md mx-auto bg-white p-6 rounded shadow my-4">
-//         <h2 className="text-xl font-semibold mb-4">Create New Lease Agreement</h2>
-//         <button
-//           className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded"
-//         >
-//           Create Lease Agreement
-//         </button>
-//       </div>
-//       {
-//         aggrementList?.map((address)=>{
-//           return <Aggrements key={address} contractAddress={address}/>
-//         })
-//       }
-//     </div>
-//   );
-// }
-
-// export default App;
-
-
-import { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { ethers } from "ethers";
-import abi from "./contracts/BuyMeACoffee.json";
+import LeaseAgreementCard from "./components/LeaseAgreementCard";
+import abi from "./contracts/Factory.json";
 
-function App() {
-  const [state, setState] = useState({
+const App = () => {
+  const [leaseAgreements, setLeaseAgreements] = useState([]);
+  const [contractState, setContractState] = useState({
     provider: null,
     signer: null,
     contract: null,
   });
-  const [monthlyRent, setMonthlyRent] = useState("");
-  const [remainingLeaseDuration, setRemainingLeaseDuration] = useState("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const [formData, setFormData] = useState({
+    _aggrementName: "",
+    _ownerName: "",
+    _tenantName: "",
+    tenant: "",
+    monthlyRent: "",
+    leaseDuration: "",
+  });
 
   useEffect(() => {
-    const connectWallet = async () => {
-      const contractAddress = "0x6C92D8F6Cc6AB42A8bd5E1fFb3EeD9c3B318C904";
+    const fetchLeaseAgreements = async () => {
+      const contractAddress = "0x97ACcE891e6E88D49ff79AF2aE37c66123f59408";
       const contractAbi = abi.abi;
+
       try {
         const { ethereum } = window;
         if (ethereum) {
@@ -94,58 +39,343 @@ function App() {
             contractAbi,
             signer
           );
-          setState({ provider, signer, contract });
-
-          // Fetch and display monthly rent and remaining lease duration
-          const rent = await contract.monthlyRent();
-          setMonthlyRent(rent.toString());
-
-          const remainingDuration = await contract.getRemainingLeaseDuration();
-          setRemainingLeaseDuration(
-            `${Math.floor(remainingDuration / (60 * 60 * 24))} days`
-          );
+          setContractState({
+            provider,
+            signer,
+            contract,
+          });
+          const addresses = await contract.getLeaseAgreements();
+          setLeaseAgreements(addresses);
         }
       } catch (error) {
         console.log(error);
       }
     };
-    connectWallet();
+
+    fetchLeaseAgreements();
   }, []);
 
-  const {contract}=state;
-  const payRent=async (event)=>{
-      event.preventDefault();
-      await contract.makePayment({ value: 100 }); 
-      console.log("Payment Successfull!!");
-    }
+  const openModal = () => {
+    setIsModalOpen(true);
+  };
 
-    const TerminateContract=async (event)=>{
-      event.preventDefault();
-      await contract.terminateLease(); 
-      console.log("Contracted terminated!!");
-    }
+  const closeModal = () => {
+    setIsModalOpen(false);
+  };
+
+  const handleFormChange = (event) => {
+    const { name, value } = event.target;
+    setFormData((prevData) => ({
+      ...prevData,
+      [name]: value,
+    }));
+  };
+
+  const handleFormSubmit = async (event) => {
+    event.preventDefault();
+    const { contract } = contractState;
+    console.log(
+      " Testing Data _aggrementName:  ",
+      formData._aggrementName,
+      "  _ownerName:  ",
+      formData._ownerName,
+      "   _tenantName:  ",
+      formData._tenantName,
+      "  tenant:  ",
+      formData.tenant,
+      "  monthlyRent:  ",
+      formData.monthlyRent,
+      "  leaseDuration:   ",
+      formData.leaseDuration
+    );
+    await contract.createLeaseAgreement(
+      formData._aggrementName,
+      formData._ownerName,
+      formData._tenantName,
+      formData.tenant,
+      formData.monthlyRent,
+      formData.leaseDuration
+    );
+    closeModal();
+    const addresses = await contract.getLeaseAgreements();
+    setLeaseAgreements(addresses);
+  };
+
   return (
-    <div className="App bg-gray-100 min-h-screen p-4">
-      <div className="max-w-md mx-auto bg-white p-6 rounded shadow">
-        <h1 className="text-2xl font-semibold mb-4">Lease Agreement</h1>
-        <div>
-          <p className="mb-2">
-            Monthly Rent: <span className="font-semibold">{monthlyRent} ETH</span>
-          </p>
-          <p className="mb-4">
-            Remaining Lease Duration:{" "}
-            <span className="font-semibold">{remainingLeaseDuration}</span>
-          </p>
-          <button onClick={payRent} className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded">
-            Make Payment
-          </button>
-          <button onClick={TerminateContract} className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded ml-2">
-            Terminate Lease
-          </button>
-        </div>
+    <div className="container mx-auto mt-8">
+      <div className="flex justify-end mb-4">
+        <button
+          className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded"
+          onClick={openModal}
+        >
+          Create Lease Agreement
+        </button>
       </div>
+      <h1 className="text-2xl font-semibold mb-4">Lease Agreements</h1>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {leaseAgreements?.map((address, index) => (
+          <LeaseAgreementCard key={address} leaseAgreementAddress={address} />
+        ))}
+      </div>
+
+      {isModalOpen && (
+        <div className="fixed inset-0 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded shadow">
+            <h2 className="text-lg font-semibold mb-4">
+              Create Lease Agreement
+            </h2>
+            <form>
+              <div className="mb-4">
+                <label className="block font-semibold">Agreement Name</label>
+                <input
+                  type="text"
+                  name="_aggrementName"
+                  value={formData._aggrementName}
+                  onChange={handleFormChange}
+                  className="w-full border rounded px-3 py-2"
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block font-semibold">Owner Name</label>
+                <input
+                  type="text"
+                  name="_ownerName"
+                  value={formData._ownerName}
+                  onChange={handleFormChange}
+                  className="w-full border rounded px-3 py-2"
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block font-semibold">Tenant Name</label>
+                <input
+                  type="text"
+                  name="_tenantName"
+                  value={formData._tenantName}
+                  onChange={handleFormChange}
+                  className="w-full border rounded px-3 py-2"
+                />
+              </div>
+
+              <div className="mb-4">
+                <label className="block font-semibold">Tenant Address</label>
+                <input
+                  type="text"
+                  name="tenant"
+                  value={formData.tenant}
+                  onChange={handleFormChange}
+                  className="w-full border rounded px-3 py-2"
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block font-semibold">Monthly Rent</label>
+                <input
+                  type="number"
+                  name="monthlyRent"
+                  value={formData.monthlyRent}
+                  onChange={handleFormChange}
+                  className="w-full border rounded px-3 py-2"
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block font-semibold">
+                  Lease Duration (months)
+                </label>
+                <input
+                  type="number"
+                  name="leaseDuration"
+                  value={formData.leaseDuration}
+                  onChange={handleFormChange}
+                  className="w-full border rounded px-3 py-2"
+                />
+              </div>
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded mr-2"
+                  onClick={handleFormSubmit}
+                >
+                  Create
+                </button>
+                <button
+                  type="button"
+                  className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded"
+                  onClick={closeModal}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
-}
+};
 
 export default App;
+
+// import React, { useEffect, useState } from "react";
+// import { ethers } from "ethers";
+// import LeaseAgreementCard from "./components/LeaseAgreementCard";
+// import abi from "./contracts/Factory.json";
+
+// const App = () => {
+//   const [leaseAgreements, setLeaseAgreements] = useState([]);
+//   const [contractState, setContractState] = useState({
+//     provider: null,
+//     signer: null,
+//     contract: null,
+//   });
+//   const [isModalOpen, setIsModalOpen] = useState(false);
+//   const [formData, setFormData] = useState({
+//     tenant: "",
+//     monthlyRent: "",
+//     leaseDuration: "",
+//   });
+
+//   useEffect(() => {
+//     const fetchLeaseAgreements = async () => {
+//       const contractAddress = "0x97ACcE891e6E88D49ff79AF2aE37c66123f59408";
+//       const contractAbi = abi.abi;
+
+//       try {
+//         const { ethereum } = window;
+//         if (ethereum) {
+//           const accounts = await ethereum.request({
+//             method: "eth_requestAccounts",
+//           });
+//           const provider = new ethers.providers.Web3Provider(ethereum);
+//           const signer = provider.getSigner();
+//           const contract = new ethers.Contract(
+//             contractAddress,
+//             contractAbi,
+//             signer
+//           );
+//           setContractState({
+//             provider,
+//             signer,
+//             contract,
+//           });
+//           const addresses = await contract.getLeaseAgreements();
+//           setLeaseAgreements(addresses);
+//         }
+//       } catch (error) {
+//         console.log(error);
+//       }
+//     };
+
+//     fetchLeaseAgreements();
+//   }, []);
+
+//   const openModal = () => {
+//     setIsModalOpen(true);
+//   };
+
+//   const closeModal = () => {
+//     setIsModalOpen(false);
+//   };
+
+//   const handleFormChange = (event) => {
+//     const { name, value } = event.target;
+//     setFormData((prevData) => ({
+//       ...prevData,
+//       [name]: value,
+//     }));
+//   };
+
+//   const handleFormSubmit = async (event) => {
+//     event.preventDefault();
+//     const { contract } = contractState;
+//     await contract.createLeaseAgreement(
+//       formData.tenant,
+//       formData.monthlyRent,
+//       formData.leaseDuration
+//     );
+//     closeModal();
+//     const addresses = await contract.getLeaseAgreements();
+//     setLeaseAgreements(addresses);
+//   };
+
+//   return (
+//     <div className="container mx-auto mt-8">
+//       <div className="flex justify-end mb-4">
+//         <button
+//           className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded"
+//           onClick={openModal}
+//         >
+//           Create Lease Agreement
+//         </button>
+//       </div>
+//       <h1 className="text-2xl font-semibold mb-4">Lease Agreements</h1>
+//       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+//         {leaseAgreements?.map((address, index) => (
+//           <LeaseAgreementCard key={address} leaseAgreementAddress={address} />
+//         ))}
+//       </div>
+
+//       {isModalOpen && (
+//         <div className="fixed inset-0 flex items-center justify-center z-50">
+//           <div className="bg-white p-6 rounded shadow">
+//             <h2 className="text-lg font-semibold mb-4">
+//               Create Lease Agreement
+//             </h2>
+//             <form>
+//               <div className="mb-4">
+//                 <label className="block font-semibold">Tenant Address</label>
+//                 <input
+//                   type="text"
+//                   name="tenant"
+//                   value={formData.tenant}
+//                   onChange={handleFormChange}
+//                   className="w-full border rounded px-3 py-2"
+//                 />
+//               </div>
+//               <div className="mb-4">
+//                 <label className="block font-semibold">Monthly Rent</label>
+//                 <input
+//                   type="number"
+//                   name="monthlyRent"
+//                   value={formData.monthlyRent}
+//                   onChange={handleFormChange}
+//                   className="w-full border rounded px-3 py-2"
+//                 />
+//               </div>
+//               <div className="mb-4">
+//                 <label className="block font-semibold">
+//                   Lease Duration (months)
+//                 </label>
+//                 <input
+//                   type="number"
+//                   name="leaseDuration"
+//                   value={formData.leaseDuration}
+//                   onChange={handleFormChange}
+//                   className="w-full border rounded px-3 py-2"
+//                 />
+//               </div>
+//               <div className="flex justify-end">
+//                 <button
+//                   type="button"
+//                   className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded mr-2"
+//                   onClick={handleFormSubmit}
+//                 >
+//                   Create
+//                 </button>
+//                 <button
+//                   type="button"
+//                   className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded"
+//                   onClick={closeModal}
+//                 >
+//                   Cancel
+//                 </button>
+//               </div>
+//             </form>
+//           </div>
+//         </div>
+//       )}
+//     </div>
+//   );
+// };
+
+// export default App;
+
+////////////////////////////////////////////////////////

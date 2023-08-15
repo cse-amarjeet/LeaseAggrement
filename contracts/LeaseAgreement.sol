@@ -11,6 +11,9 @@ contract LeaseAgreement {
     uint256 public endDate;
     bool public leaseTerminated;
     bool public leaseActive;
+    string public aggrementName;
+    string public ownerName;
+    string public tenantName;
     
     modifier onlyLandlord() {
         require(msg.sender == landlord, "Only the landlord can call this function.");
@@ -28,11 +31,14 @@ contract LeaseAgreement {
     }
     
     constructor(
+        string memory _aggrementName,
+        string memory _ownerName,
+        string memory _tenantName,
         address _tenant,
         uint256 _monthlyRent,
         uint256 _leaseDurationMonths
     ) {
-        landlord = msg.sender;
+        landlord = tx.origin;
         tenant = _tenant;
         monthlyRent = _monthlyRent;
         leaseDuration = _leaseDurationMonths * 30 days;
@@ -40,6 +46,9 @@ contract LeaseAgreement {
         endDate = startDate + leaseDuration;
         leaseTerminated = false;
         leaseActive = true;
+        aggrementName=_aggrementName;
+        tenantName=_tenantName;
+        ownerName=_ownerName;
     }
     
     function makePayment() external payable onlyTenant leaseIsActive {
@@ -50,14 +59,13 @@ contract LeaseAgreement {
             leaseTerminated = true;
             leaseActive = false;
         }
+        payable(landlord).transfer(msg.value);
     }
-    
     function terminateLease() external onlyLandlord {
         require(!leaseTerminated, "Lease is already terminated.");
         leaseTerminated = true;
         leaseActive = false;
     }
-    
     function getRemainingLeaseDuration() external view returns (uint256) {
         if (block.timestamp >= endDate) {
             return 0;
